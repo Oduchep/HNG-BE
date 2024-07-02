@@ -1,14 +1,24 @@
 import axios from 'axios';
 
-// Function to get geolocation based on IP address (consider free IP geolocation API)
+// Function to get client's IP address from request headers
+const getClientIp = (req) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    // Return the first IP address in the list (client's IP)
+    return forwarded.split(',')[0];
+  }
+  // If there's no forwarded header, return the remote address
+  return req.connection.remoteAddress;
+};
 
-const getGeoLocation = async () => {
+// Function to get geolocation based on IP address using ipinfo.io
+const getGeoLocation = async (ip) => {
   try {
     const response = await axios.get(
-      `https://ipinfo.io/?token=${process.env.IPINFO_API_KEY}`,
+      `https://ipinfo.io/${ip}/geo?token=${process.env.IPINFO_API_KEY}`,
     );
 
-    if (!response.data) {
+    if (!response.data || !response.data.loc) {
       throw new Error('Invalid response from IP geolocation service');
     }
 
@@ -27,7 +37,7 @@ const getGeoLocation = async () => {
       timezone: response.data.timezone,
     };
 
-    // console.log({ data });
+    console.log({ data });
 
     return data;
   } catch (error) {
@@ -35,20 +45,24 @@ const getGeoLocation = async () => {
   }
 };
 
-// Function to get weather based on latitude and longitude
+// Function to get weather based on latitude and longitude using OpenWeatherMap API
 const getWeather = async (lat, lon) => {
-  const response = await axios.get(
-    `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${process.env.OPENWEATHERMAP_API_KEY}`,
-  );
-  return response.data.main.temp;
+  try {
+    const response = await axios.get(
+      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${process.env.OPENWEATHERMAP_API_KEY}`,
+    );
+    return response.data.main.temp;
+  } catch (error) {
+    throw new Error(`Error fetching weather: ${error.message}`);
+  }
 };
 
-// Function to greet user
 const greetUser = async (req, res) => {
   const visitorName = req.query.visitor_name || 'stranger';
+  const clientIp = getClientIp(req);
 
   try {
-    const locationData = await getGeoLocation();
+    const locationData = await getGeoLocation(clientIp);
     const temp = await getWeather(
       locationData.latitude,
       locationData.longitude,
