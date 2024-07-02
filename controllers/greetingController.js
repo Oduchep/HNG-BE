@@ -1,6 +1,15 @@
 import axios from 'axios';
-import jwt from 'jsonwebtoken';
 
+// Function to get client's IP address from request headers
+const getClientIp = (req) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip = forwarded
+    ? forwarded.split(/, /)[0]
+    : req.connection.remoteAddress;
+  return ip;
+};
+
+// Function to get geolocation based on IP address
 const getGeoLocation = async (ip) => {
   const response = await axios.post(
     `https://www.googleapis.com/geolocation/v1/geolocate?key=${process.env.GOOGLE_API_KEY}`,
@@ -9,6 +18,7 @@ const getGeoLocation = async (ip) => {
   return response.data.location;
 };
 
+// Function to get state based on latitude and longitude
 const getState = async (lat, lon) => {
   const response = await axios.get(
     `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${process.env.GOOGLE_API_KEY}`,
@@ -19,6 +29,7 @@ const getState = async (lat, lon) => {
   return state;
 };
 
+// Function to get weather based on latitude and longitude
 const getWeather = async (lat, lon) => {
   const response = await axios.get(
     `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${process.env.OPENWEATHERMAP_API_KEY}`,
@@ -26,10 +37,10 @@ const getWeather = async (lat, lon) => {
   return response.data.main.temp;
 };
 
-// greet user
+// Function to greet user
 const greetUser = async (req, res) => {
   const visitorName = req.query.visitor_name || 'stranger';
-  const clientIp = req.ip;
+  const clientIp = getClientIp(req);
 
   try {
     const { lat, lng } = await getGeoLocation(clientIp);
