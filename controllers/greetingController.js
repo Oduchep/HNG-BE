@@ -1,32 +1,38 @@
 import axios from 'axios';
 
-// Function to get client's IP address from request headers
-const getClientIp = (req) => {
-  const forwarded = req.headers['x-forwarded-for'];
-  const ip = forwarded
-    ? forwarded.split(/, /)[0]
-    : req.connection.remoteAddress;
-  return ip;
-};
+// Function to get geolocation based on IP address (consider free IP geolocation API)
 
-// Function to get geolocation based on IP address using ipinfo.io
-const getGeoLocation = async (ip) => {
-  const response = await axios.get(
-    `https://ipinfo.io/${ip}/geo?token=${process.env.IPINFO_API_KEY}`,
-  );
-  const [lat, lon] = response.data.loc.split(',');
-  return { lat, lon };
-};
+const getGeoLocation = async () => {
+  try {
+    const response = await axios.get(
+      `https://ipinfo.io/?token=${process.env.IPINFO_API_KEY}`,
+    );
 
-// Function to get state based on latitude and longitude
-const getState = async (lat, lon) => {
-  const response = await axios.get(
-    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${process.env.GOOGLE_API_KEY}`,
-  );
-  const state = response.data.results[0].address_components.find((component) =>
-    component.types.includes('administrative_area_level_1'),
-  ).long_name;
-  return state;
+    if (!response.data) {
+      throw new Error('Invalid response from IP geolocation service');
+    }
+
+    const coordinates = response.data.loc.split(',');
+    const latitude = parseFloat(coordinates[0]);
+    const longitude = parseFloat(coordinates[1]);
+
+    const data = {
+      ip: response.data.ip,
+      city: response.data.city,
+      region: response.data.region,
+      country: response.data.country,
+      latitude: latitude,
+      longitude: longitude,
+      org: response.data.org,
+      timezone: response.data.timezone,
+    };
+
+    // console.log({ data });
+
+    return data;
+  } catch (error) {
+    throw new Error(`Error fetching geolocation: ${error.message}`);
+  }
 };
 
 // Function to get weather based on latitude and longitude
@@ -40,17 +46,18 @@ const getWeather = async (lat, lon) => {
 // Function to greet user
 const greetUser = async (req, res) => {
   const visitorName = req.query.visitor_name || 'stranger';
-  const clientIp = getClientIp(req);
 
   try {
-    const { lat, lon } = await getGeoLocation(clientIp);
-    const state = await getState(lat, lon);
-    const temp = await getWeather(lat, lon);
+    const locationData = await getGeoLocation();
+    const temp = await getWeather(
+      locationData.latitude,
+      locationData.longitude,
+    );
 
     res.status(200).json({
-      client_ip: clientIp,
-      location: state,
-      greeting: `Hello, ${visitorName}!, the temperature is ${temp} degrees Celsius in ${state}`,
+      client_ip: locationData?.ip,
+      location: locationData?.city,
+      greeting: `Hello, ${visitorName}!, the temperature is ${temp} degrees Celsius in ${locationData?.city}`,
     });
   } catch (error) {
     res.status(400).json({ error: error.message });
