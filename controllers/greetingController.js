@@ -9,13 +9,13 @@ const getClientIp = (req) => {
   return ip;
 };
 
-// Function to get geolocation based on IP address
+// Function to get geolocation based on IP address using ipinfo.io
 const getGeoLocation = async (ip) => {
-  const response = await axios.post(
-    `https://www.googleapis.com/geolocation/v1/geolocate?key=${process.env.GOOGLE_API_KEY}`,
-    { considerIp: true },
+  const response = await axios.get(
+    `https://ipinfo.io/${ip}/geo?token=${process.env.IPINFO_API_KEY}`,
   );
-  return response.data.location;
+  const [lat, lon] = response.data.loc.split(',');
+  return { lat, lon };
 };
 
 // Function to get state based on latitude and longitude
@@ -43,9 +43,9 @@ const greetUser = async (req, res) => {
   const clientIp = getClientIp(req);
 
   try {
-    const { lat, lng } = await getGeoLocation(clientIp);
-    const state = await getState(lat, lng);
-    const temp = await getWeather(lat, lng);
+    const { lat, lon } = await getGeoLocation(clientIp);
+    const state = await getState(lat, lon);
+    const temp = await getWeather(lat, lon);
 
     res.status(200).json({
       client_ip: clientIp,
