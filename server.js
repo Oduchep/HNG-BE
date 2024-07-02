@@ -7,36 +7,40 @@ import notFound from './middleware/notFound.js';
 
 const app = express();
 
-// body parser middleware
+// Body parser middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Logger middleware
 app.use(logger);
 
-// routes
+// Routes
 app.use('/api', greetingRoutes);
 
 app.get('/', (req, res) => {
   res.send('API works!');
 });
 
-// error handler
+// Error handler
 app.use(notFound);
 app.use(errorHandler);
 
 const port = process.env.PORT || 6005;
 
-// connect to db
+// Connect to database
 const MONGO_URI = process.env.MONGO_URI;
 
 mongoose
-  .connect(MONGO_URI)
+  .connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => {
+    console.log(`Connected to MongoDB`);
     app.listen(port, () => {
-      console.log(`Server is running on port...${port}`);
+      console.log(`Server is running on port ${port}`);
     });
   })
   .catch((error) => {
-    console.log(error);
+    console.error('Database connection error:', error);
   });
+
+// Export the Express app for Vercel
+export default app;
