@@ -3,7 +3,6 @@ import userModel from '../models/userModel.js';
 import { createError } from '../errors/customError.js';
 
 const requireAuth = async (req, res, next) => {
-  // verify authentication
   const { authorization } = req.headers;
 
   if (!authorization) {
@@ -15,10 +14,13 @@ const requireAuth = async (req, res, next) => {
   try {
     const { _id } = jwt.verify(token, process.env.SECRET);
 
-    req.user = await userModel.findOne({ _id }).select('_id');
+    req.user = await userModel.findOne({ _id }).populate('organisations'); // Populate organisations
+    if (!req.user) {
+      throw createError('User not found', 404);
+    }
     next();
   } catch (error) {
-    next(createError('Invalid or expired token', 401));
+    next(error);
   }
 };
 

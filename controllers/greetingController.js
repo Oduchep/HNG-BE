@@ -37,8 +37,6 @@ const getGeoLocation = async (ip) => {
       timezone: response.data.timezone,
     };
 
-    console.log({ data });
-
     return data;
   } catch (error) {
     throw new Error(`Error fetching geolocation: ${error.message}`);

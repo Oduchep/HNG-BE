@@ -1,25 +1,28 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid'; // Import the UUID library
+import { v4 as uuidv4 } from 'uuid';
 import { userValidation } from '../validation/userValidation.js';
 import organisationModel from './organisationModel.js';
 import { createError } from '../errors/customError.js';
 
 const Schema = mongoose.Schema;
 
-const userSchema = new Schema({
-  userId: { type: String, required: true, unique: true, default: uuidv4() },
-  firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  phone: { type: String, required: true, unique: true },
-  organisations: [{ type: Schema.Types.ObjectId, ref: 'Organisation' }],
-});
+const userSchema = new Schema(
+  {
+    userId: { type: String, required: true, unique: true, default: uuidv4 },
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    phone: { type: String, required: true, unique: true },
+    organisations: [{ type: Schema.Types.ObjectId, ref: 'Organisation' }],
+  },
+  { timestamps: true },
+);
 
 // Static sign-up method
 userSchema.statics.signup = async function (data) {
-  // Validation
+  // Validate request body
   const { error } = userValidation.validate(data);
 
   if (error) {

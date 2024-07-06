@@ -19,4 +19,8 @@ const userValidation = Joi.object({
   phone: Joi.string().required(),
 });
 
-export { userValidation };
+const addUserValidation = Joi.object({
+  userId: Joi.string().required(),
+});
+
+export { userValidation, addUserValidation };

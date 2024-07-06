@@ -31,7 +31,7 @@ const signUpUser = async (req, res) => {
   } catch (error) {
     const status = error.status;
     const statusCode = error.statusCode;
-    res.status(error.statusCode).json({
+    res.status(statusCode).json({
       status,
       message: error.message,
       statusCode,
