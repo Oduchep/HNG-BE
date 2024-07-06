@@ -18,7 +18,7 @@ const requireAuth = async (req, res, next) => {
     req.user = await userModel.findOne({ _id }).select('_id');
     next();
   } catch (error) {
-    next(error);
+    next(createError('Invalid or expired token', 401));
   }
 };
 

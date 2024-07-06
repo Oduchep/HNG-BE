@@ -4,6 +4,9 @@ import greetingRoutes from './routes/greetingRoutes.js';
 import logger from './middleware/logger.js';
 import errorHandler from './middleware/errorHandler.js';
 import notFound from './middleware/notFound.js';
+import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import organisationRoutes from './routes/organisationRoutes.js';
 
 const app = express();
 
@@ -15,6 +18,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use(logger);
 
 // Routes
+app.use('/api/organisations', organisationRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api', greetingRoutes);
 
 app.get('/', (req, res) => {
