@@ -1,6 +1,6 @@
 // validationMiddleware.js
 import Joi from 'joi';
-import { badRequestError } from '../errors/customError.js';
+import { badRequestError } from '../utils/customError.js';
 
 export const validateRequest = (schema) => (req, res, next) => {
   const { error } = schema.validate(req.body);

@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import userModel from '../models/userModel.js';
-import { createError } from '../errors/customError.js';
+import { createError } from '../utils/customError.js';
 
 const requireAuth = async (req, res, next) => {
   const { authorization } = req.headers;

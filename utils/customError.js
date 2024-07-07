@@ -10,3 +10,12 @@ export const notFoundError = (message = 'Resource not found') =>
 
 export const badRequestError = (message = 'Bad request') =>
   createError(message, 400);
+
+export const formatErrors = (errorDetails) => {
+  return {
+    errors: errorDetails.map((error) => ({
+      field: error.path.join('.'),
+      message: error.message,
+    })),
+  };
+};
