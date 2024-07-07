@@ -28,6 +28,18 @@ const dup_user_details = {
   phone: '1234567822',
 };
 
+// BeforeAll and AfterAll hooks for database connection and cleanup
+beforeAll(async () => {
+  await mongoose.connect(MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+});
+
+afterAll(async () => {
+  await mongoose.connection.close();
+});
+
 // Describe block for token generation tests
 describe('Token Generation', () => {
   it('should generate a token that expires at the correct time and includes correct user details', () => {
@@ -39,18 +51,6 @@ describe('Token Generation', () => {
     const expectedExpiration = Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60;
     expect(decoded.exp).toBeCloseTo(expectedExpiration, -2); // Allow a small margin of error
   });
-});
-
-// BeforeAll and AfterAll hooks for database connection and cleanup
-beforeAll(async () => {
-  await mongoose.connect(MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
-});
-
-afterAll(async () => {
-  await mongoose.connection.close();
 });
 
 // Describe block for authentication endpoints
@@ -163,17 +163,17 @@ describe('Organisation Access', () => {
 
     // Create users
     user1 = await userModel.create({
-      firstName: 'John',
+      firstName: 'UniqueJohn',
       lastName: 'Doe',
-      email: 'john@example.com',
+      email: 'uniquejohn@example.com',
       password: 'password',
       phone: '1234567890',
       organisations: [organisation1._id],
     });
     user2 = await userModel.create({
-      firstName: 'Jane',
+      firstName: 'UniqueJane',
       lastName: 'Doe',
-      email: 'jane@example.com',
+      email: 'uniquejane@example.com',
       password: 'password',
       phone: '0987654321',
       organisations: [organisation2._id],
