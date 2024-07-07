@@ -1,5 +1,5 @@
-import { createError } from '../errors/customError.js';
-import { createSuccess } from '../middleware/createSuccess.js';
+import { createError } from '../utils/customError.js';
+import { createSuccess } from '../utils/createSuccess.js';
 import organisationModel from '../models/organisationModel.js';
 import userModel from '../models/userModel.js';
 

@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { userValidation } from '../validation/userValidation.js';
 import organisationModel from './organisationModel.js';
-import { createError } from '../errors/customError.js';
+import { createError, formatErrors } from '../utils/customError.js';
 
 const Schema = mongoose.Schema;
 
@@ -23,16 +23,26 @@ const userSchema = new Schema(
 // Static sign-up method
 userSchema.statics.signup = async function (data) {
   // Validate request body
-  const { error } = userValidation.validate(data);
-
+  const { error } = userValidation.validate(data, { abortEarly: false });
   if (error) {
-    throw createError(error.details[0].message, 400);
+    // Format validation errors
+    const formattedErrors = formatErrors(error.details);
+    // Create an error object to throw
+    const validationError = new Error('Validation Error');
+    validationError.status = 422;
+    validationError.errors = formattedErrors;
+    throw validationError;
   }
 
   // Check for existing email or phone
   const emailExists = await this.findOne({ email: data.email });
   if (emailExists) {
-    throw createError('Registration unsuccessful', 400);
+    const validationError = new Error('Email already exists');
+    validationError.status = 422;
+    validationError.errors = {
+      errors: [{ field: 'email', message: 'Email already exists' }],
+    };
+    throw validationError;
   }
 
   const phoneExists = await this.findOne({ phone: data.phone });

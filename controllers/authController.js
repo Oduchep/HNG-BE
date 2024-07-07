@@ -1,13 +1,13 @@
 import userModel from '../models/userModel.js';
 import jwt from 'jsonwebtoken';
-import { createSuccess } from '../middleware/createSuccess.js';
+import { createSuccess } from '../utils/createSuccess.js';
 
 const createToken = (id) => {
   return jwt.sign({ _id: id }, process.env.SECRET, { expiresIn: '3d' });
 };
 
 // register user
-const signUpUser = async (req, res) => {
+const signUpUser = async (req, res, next) => {
   const data = req.body;
 
   try {
@@ -31,11 +31,16 @@ const signUpUser = async (req, res) => {
   } catch (error) {
     const status = error.status;
     const statusCode = error.statusCode;
-    res.status(statusCode).json({
-      status,
-      message: error.message,
-      statusCode,
-    });
+
+    if (status == 422) {
+      res.status(422).json(error?.errors);
+    } else {
+      res.status(statusCode).json({
+        status,
+        message: error.message,
+        statusCode,
+      });
+    }
   }
 };
 
@@ -72,4 +77,4 @@ const loginUser = async (req, res) => {
   }
 };
 
-export { signUpUser, loginUser };
+export { signUpUser, loginUser, createToken };
