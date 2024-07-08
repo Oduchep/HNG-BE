@@ -1,41 +1,70 @@
-import mongoose from 'mongoose';
+import { Sequelize, DataTypes } from 'sequelize';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import { sequelize } from '../db.config.js';
+import OrganisationModel from './organisationModel.js'; // adjust the path as necessary
 import { userValidation } from '../validation/userValidation.js';
-import organisationModel from './organisationModel.js';
 import { createError, formatErrors } from '../utils/customError.js';
 
-const Schema = mongoose.Schema;
-
-const userSchema = new Schema(
+const UserModel = sequelize.define(
+  'User',
   {
-    userId: { type: String, required: true, unique: true, default: uuidv4 },
-    firstName: { type: String, required: true },
-    lastName: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    phone: { type: String, required: true, unique: true },
-    organisations: [{ type: Schema.Types.ObjectId, ref: 'Organisation' }],
+    userId: {
+      type: DataTypes.UUID,
+      defaultValue: uuidv4,
+      allowNull: false,
+      unique: true,
+      primaryKey: true,
+    },
+    firstName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    lastName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    phone: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
-// Static sign-up method
-userSchema.statics.signup = async function (data) {
-  // Validate request body
+// Define the association with Organisation
+UserModel.associate = function (models) {
+  User.belongsToMany(models.Organisation, {
+    through: 'UserOrganisations',
+    as: 'organisations',
+    foreignKey: 'userId',
+  });
+};
+
+// Static signup method
+UserModel.signup = async function (data) {
   const { error } = userValidation.validate(data, { abortEarly: false });
   if (error) {
-    // Format validation errors
     const formattedErrors = formatErrors(error.details);
-    // Create an error object to throw
     const validationError = new Error('Validation Error');
     validationError.status = 422;
     validationError.errors = formattedErrors;
     throw validationError;
   }
 
-  // Check for existing email or phone
-  const emailExists = await this.findOne({ email: data.email });
+  const emailExists = await this.findOne({ where: { email: data.email } });
   if (emailExists) {
     const validationError = new Error('Email already exists');
     validationError.status = 422;
@@ -45,50 +74,41 @@ userSchema.statics.signup = async function (data) {
     throw validationError;
   }
 
-  const phoneExists = await this.findOne({ phone: data.phone });
+  const phoneExists = await this.findOne({ where: { phone: data.phone } });
   if (phoneExists) {
     throw createError('Phone number already in use!', 400);
   }
 
-  // Generate a unique userId
   let userId;
   let userIdExists;
 
   do {
     userId = uuidv4();
-    userIdExists = await this.findOne({ userId });
+    userIdExists = await this.findOne({ where: { userId } });
   } while (userIdExists);
 
-  // Hash the password
   const salt = await bcrypt.genSalt(12);
   const hash = await bcrypt.hash(data.password, salt);
 
-  // Create the user
   const user = await this.create({ ...data, userId, password: hash });
 
-  // Create an organisation for the user
   const orgName = `${data.firstName}'s Organisation`;
-  const organisation = await organisationModel.create({
+  const organisation = await OrganisationModel.create({
     name: orgName,
-    users: [user._id],
   });
 
-  // Add the organisation to the user's organisations list
-  user.organisations.push(organisation._id);
-  await user.save();
+  await user.addOrganisation(organisation);
 
   return user;
 };
 
-// static login method
-userSchema.statics.login = async function ({ email, password }) {
-  // valiadtion
-
+// Static login method
+UserModel.login = async function ({ email, password }) {
   if (!email || !password) {
     throw createError('All fields are required!', 400);
   }
 
-  const user = await this.findOne({ email });
+  const user = await this.findOne({ where: { email } });
 
   if (!user) {
     throw createError('Authentication failed!', 401);
@@ -103,4 +123,4 @@ userSchema.statics.login = async function ({ email, password }) {
   return user;
 };
 
-export default mongoose.model('User', userSchema);
+export default UserModel;

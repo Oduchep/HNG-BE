@@ -1,16 +1,36 @@
-import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
+import { sequelize } from '../db.config.js';
+import { Sequelize, DataTypes } from 'sequelize';
 
-const Schema = mongoose.Schema;
-
-const organisationSchema = new Schema(
+const OrganisationModel = sequelize.define(
+  'Organisation',
   {
-    orgId: { type: String, required: true, default: uuidv4 },
-    name: { type: String, required: true },
-    description: { type: String, default: '' },
-    users: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    orgId: {
+      type: DataTypes.UUID,
+      defaultValue: uuidv4,
+      allowNull: false,
+      primaryKey: true,
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    description: {
+      type: DataTypes.STRING,
+      defaultValue: '',
+    },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
-export default mongoose.model('Organisation', organisationSchema);
+OrganisationModel.associate = function (models) {
+  OrganisationModel.belongsToMany(models.User, {
+    through: 'UserOrganisations',
+    as: 'users',
+    foreignKey: 'orgId',
+  });
+};
+
+export default OrganisationModel;
