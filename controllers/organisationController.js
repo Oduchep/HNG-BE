@@ -87,7 +87,7 @@ const createOrganisation = async (req, res, next) => {
     await req.user.save();
 
     const orgData = {
-      orgId: newOrganisation._id,
+      orgId: newOrganisation.orgId,
       name: newOrganisation.name,
       description: newOrganisation.description,
     };
