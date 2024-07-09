@@ -4,18 +4,30 @@ import organisationModel from '../models/organisationModel.js';
 import userModel from '../models/userModel.js';
 import { organisationValidation } from '../validation/organisationValidation.js';
 import { addUserValidation } from '../validation/userValidation.js';
+import OrganisationModel from '../models/organisationModel.js';
+import UserModel from '../models/userModel.js';
 
 // get all organisations
 const getOrganisations = async (req, res, next) => {
-  const userId = req.user._id;
+  const userId = req.user.userId;
 
   try {
-    const organisations = await organisationModel.find({
-      users: userId,
+    // Fetch organisations for the logged-in user
+    const user = await UserModel.findByPk(userId, {
+      include: {
+        model: OrganisationModel,
+        through: { attributes: [] },
+      },
     });
 
+    if (!user) {
+      throw createError('User not found', 404);
+    }
+
+    console.log(user);
+
     const userOrganisations = {
-      organisations: organisations.map((org) => ({
+      organisations: user.Organisations.map((org) => ({
         orgId: org.orgId,
         name: org.name,
         description: org.description,
@@ -43,7 +55,7 @@ const getSingleOrganisation = async (req, res, next) => {
     // Find the organisation by orgId and check if the user has access
     const organisation = await organisationModel.findOne({
       orgId,
-      users: req.user._id,
+      users: req.user.userId,
     });
 
     if (!organisation) {
@@ -79,12 +91,10 @@ const createOrganisation = async (req, res, next) => {
     const newOrganisation = await organisationModel.create({
       name,
       description,
-      users: [req.user._id],
     });
 
     // Add the new organisation to the user's organisations
-    req.user.organisations.push(newOrganisation._id);
-    await req.user.save();
+    await req.user.addOrganisation(newOrganisation.orgId);
 
     const orgData = {
       orgId: newOrganisation.orgId,
@@ -113,29 +123,28 @@ const addUserToOrganisation = async (req, res, next) => {
     }
 
     // Find the organisation
-    const organisation = await organisationModel.findOne({ orgId });
+    const organisation = await OrganisationModel.findByPk(orgId, {
+      include: ['Users'],
+    });
+
     if (!organisation) {
       throw createError('Organisation not found', 404);
     }
 
     // Find the user
-    const user = await userModel.findOne({ userId });
+    const user = await UserModel.findByPk(userId);
     if (!user) {
       throw createError('User not found', 404);
     }
 
-    // Check if user is already in the organisation
-    if (organisation.users.includes(user._id)) {
-      throw createError('User already in the organisation', 400);
+    // Check if the user is already in the organisation
+    const isUserInOrganisation = await organisation.hasUser(user);
+    if (isUserInOrganisation) {
+      throw createError('User is already in this organisation', 400);
     }
 
     // Add the user to the organisation
-    organisation.users.push(user._id);
-    await organisation.save();
-
-    // Add the organisation to the user's organisations
-    user.organisations.push(organisation._id);
-    await user.save();
+    await organisation.addUser(user);
 
     res
       .status(200)

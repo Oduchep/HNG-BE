@@ -1,7 +1,7 @@
 import { createError } from '../utils/customError.js';
 import { createSuccess } from '../utils/createSuccess.js';
-import organisationModel from '../models/organisationModel.js';
-import userModel from '../models/userModel.js';
+import UserModel from '../models/userModel.js';
+import OrganisationModel from '../models/organisationModel.js';
 
 // get single user
 const getSingleUser = async (req, res, next) => {
@@ -9,20 +9,27 @@ const getSingleUser = async (req, res, next) => {
 
   try {
     // Fetch the user making the request
-    const requestingUser = await userModel
-      .findById(req.user._id)
-      .populate('organisations');
+    const requestingUser = await UserModel.findByPk(req.user.userId, {
+      include: {
+        model: OrganisationModel,
+        through: { attributes: [] },
+      },
+    });
 
     // Check if the requested user is the authenticated user or in the same organisations
     if (requestingUser.userId !== userId) {
-      const organisations = await organisationModel
-        .find({
-          users: req.user._id,
-        })
-        .populate('users');
+      const organisations = await OrganisationModel.findAll({
+        where: {
+          id: requestingUser.Organisations.map((org) => org.orgId),
+        },
+        include: {
+          model: UserModel,
+          through: { attributes: [] },
+        },
+      });
 
       const userInOrg = organisations.some((org) =>
-        org.users.some((user) => user.userId === userId),
+        org.Users.some((user) => user.userId === userId),
       );
 
       if (!userInOrg) {
@@ -31,7 +38,13 @@ const getSingleUser = async (req, res, next) => {
     }
 
     // Fetch the user data for the requested userId
-    const user = await userModel.findOne({ userId }).populate('organisations');
+    const user = await UserModel.findOne({
+      where: { userId },
+      include: {
+        model: OrganisationModel,
+        through: { attributes: [] },
+      },
+    });
 
     if (!user) {
       throw createError('User not found', 404);
