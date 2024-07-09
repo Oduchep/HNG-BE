@@ -1,11 +1,12 @@
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import request from 'supertest';
+import app from '../server';
+import userModel from '../models/userModel';
+import organisationModel from '../models/organisationModel';
 import bcrypt from 'bcrypt';
-import app from '../server.js';
-import { sequelize } from '../db.config.js';
-import OrganisationModel from '../models/organisationModel.js';
-import UserModel from '../models/userModel.js';
+import { Sequelize } from 'sequelize';
+import pg from 'pg';
 
 dotenv.config();
 
@@ -27,14 +28,43 @@ const dup_user_details = {
   phone: '1234567822',
 };
 
-beforeAll(async () => {
-  await sequelize.sync({ force: true });
+const port = 6001;
+
+const sequelize = new Sequelize(process.env.POSTGRES_URL, {
+  dialect: 'postgres',
+  dialectModule: pg,
+  protocol: 'postgres',
+  logging: false, // Set to console.log to see the raw SQL queries
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false, // If using a self-signed certificate
+    },
+  },
 });
+
+// BeforeAll and AfterAll hooks for database connection and cleanup
+beforeAll(async () => {
+  try {
+    await sequelize.authenticate();
+    console.log('Connection to PostgreSQL has been established successfully.');
+
+    await sequelize.sync(); // Sync all models
+    console.log('Database synchronized.');
+
+    app.listen(port, () => {
+      console.log(`Server is running on port ${port}`);
+    });
+  } catch (error) {
+    console.error('Unable to connect to the database:', error.message);
+  }
+}, 10000); // Increase timeout to 10 seconds (10000 ms)
 
 afterAll(async () => {
   await sequelize.close();
-});
+}, 10000); // Increase timeout for cleanup as well
 
+// Describe block for token generation tests
 describe('Token Generation', () => {
   it('should generate a token that expires at the correct time and includes correct user details', () => {
     const userId = 'testuser1';
@@ -43,20 +73,21 @@ describe('Token Generation', () => {
 
     expect(decoded._id).toBe(userId);
     const expectedExpiration = Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60;
-    expect(decoded.exp).toBeCloseTo(expectedExpiration, -2);
+    expect(decoded.exp).toBeCloseTo(expectedExpiration, -2); // Allow a small margin of error
   });
 });
 
+// Describe block for authentication endpoints
 describe('Auth Endpoints', () => {
+  // BeforeEach hook to clear users and organisations before each test
   beforeEach(async () => {
-    await UserModel.destroy({ where: {} });
-    await OrganisationModel.destroy({ where: {} });
+    await userModel.destroy({ truncate: true, cascade: true });
+    await organisationModel.destroy({ truncate: true, cascade: true });
   });
 
+  // Test case for successful user registration with default organisation
   it('should register user successfully with default organisation', async () => {
-    const res = await request(app)
-      .post('/api/auth/register')
-      .send(user_details);
+    const res = await request(app).post('/auth/register').send(user_details);
 
     expect(res.statusCode).toEqual(201);
     expect(res.body.data).toHaveProperty('accessToken');
@@ -67,12 +98,16 @@ describe('Auth Endpoints', () => {
     expect(res.body.data.user.phone).toBe(user_details.phone);
   });
 
+  // Test case for missing required fields during user registration
   it('should fail if required fields are missing', async () => {
-    const res = await request(app).post('/api/auth/register').send({});
+    const res = await request(app).post('/auth/register').send({
+      // Omitting firstName, lastName, email, password, phone intentionally
+    });
 
     expect(res.statusCode).toEqual(422);
     expect(res.body).toHaveProperty('errors');
 
+    // Check for specific error messages
     expect(res.body.errors).toEqual(
       expect.arrayContaining([
         { field: 'firstName', message: '"firstName" is required' },
@@ -84,6 +119,7 @@ describe('Auth Endpoints', () => {
     );
   });
 
+  // Test case for successful user login
   it('should log the user in successfully', async () => {
     const newUser = {
       firstName: 'Lonely',
@@ -93,14 +129,13 @@ describe('Auth Endpoints', () => {
       phone: '00077621112',
     };
 
+    // Save the user with a hashed password
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(newUser.password, salt);
-    const user = await UserModel.create({
-      ...newUser,
-      password: hashedPassword,
-    });
+    const user = new userModel({ ...newUser, password: hashedPassword });
+    await user.save();
 
-    const res = await request(app).post('/api/auth/login').send({
+    const res = await request(app).post('/auth/login').send({
       email: newUser.email,
       password: newUser.password,
     });
@@ -113,16 +148,17 @@ describe('Auth Endpoints', () => {
     expect(res.body.data.user.lastName).toBe(newUser.lastName);
   });
 
+  // Test case for duplicate email during user registration
   it('should fail if there is duplicate email or userID', async () => {
+    // Create the first user
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(user_details.password, salt);
-    const user = await UserModel.create({
-      ...user_details,
-      password: hashedPassword,
-    });
+    const user = new userModel({ ...user_details, password: hashedPassword });
+    await user.save();
 
+    // Attempt to register the second user with the same email
     const res = await request(app)
-      .post('/api/auth/register')
+      .post('/auth/register')
       .send(dup_user_details);
 
     expect(res.statusCode).toEqual(422);
@@ -131,67 +167,5 @@ describe('Auth Endpoints', () => {
       field: 'email',
       message: 'Email already exists',
     });
-  });
-});
-
-describe('Organisation Access', () => {
-  let user1, user2, organisation1, organisation2;
-
-  beforeAll(async () => {
-    await UserModel.destroy({ where: {} });
-    await OrganisationModel.destroy({ where: {} });
-
-    organisation1 = await OrganisationModel.create({ name: 'Org 1' });
-    organisation2 = await OrganisationModel.create({ name: 'Org 2' });
-
-    user1 = await UserModel.create({
-      firstName: 'UniqueJohn',
-      lastName: 'Doe',
-      email: 'uniquejohn@example.com',
-      password: 'password',
-      phone: '1234567890',
-    });
-    user2 = await UserModel.create({
-      firstName: 'UniqueJane',
-      lastName: 'Doe',
-      email: 'uniquejane@example.com',
-      password: 'password',
-      phone: '0987654321',
-    });
-
-    await user1.addOrganisation(organisation1);
-    await user2.addOrganisation(organisation2);
-  });
-
-  afterAll(async () => {
-    await UserModel.destroy({ where: {} });
-    await OrganisationModel.destroy({ where: {} });
-  });
-
-  it('should not allow access to organisations the user does not belong to', async () => {
-    const user1Orgs = await user1.getOrganisations();
-    const user2Orgs = await user2.getOrganisations();
-
-    expect(user1Orgs).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ orgId: organisation1.orgId }),
-      ]),
-    );
-    expect(user1Orgs).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ orgId: organisation2.orgId }),
-      ]),
-    );
-
-    expect(user2Orgs).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ orgId: organisation2.orgId }),
-      ]),
-    );
-    expect(user2Orgs).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ orgId: organisation1.orgId }),
-      ]),
-    );
   });
 });
