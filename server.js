@@ -23,7 +23,7 @@ app.use(logger);
 // Routes
 app.use('/api/organisations', organisationRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 app.use('/api', greetingRoutes);
 
 app.get('/', (req, res) => {

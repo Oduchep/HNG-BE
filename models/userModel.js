@@ -44,14 +44,49 @@ const UserModel = sequelize.define(
   },
 );
 
+// Define junction table for many-to-many relationship
+const UserOrganisation = sequelize.define(
+  'UserOrganisation',
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      allowNull: false,
+      primaryKey: true,
+    },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'Users',
+        key: 'userId',
+      },
+    },
+    orgId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'Organisations',
+        key: 'orgId',
+      },
+    },
+  },
+  {
+    timestamps: true,
+  },
+);
+
 // Define the association with Organisation
-UserModel.associate = function (models) {
-  User.belongsToMany(models.Organisation, {
-    through: 'UserOrganisations',
-    as: 'organisations',
-    foreignKey: 'userId',
-  });
-};
+UserModel.belongsToMany(OrganisationModel, {
+  through: UserOrganisation,
+  foreignKey: 'userId',
+  otherKey: 'orgId',
+});
+OrganisationModel.belongsToMany(UserModel, {
+  through: UserOrganisation,
+  foreignKey: 'orgId',
+  otherKey: 'userId',
+});
 
 // Static signup method
 UserModel.signup = async function (data) {
@@ -97,7 +132,7 @@ UserModel.signup = async function (data) {
     name: orgName,
   });
 
-  await user.addOrganisation(organisation);
+  await user.addOrganisation(organisation.orgId);
 
   return user;
 };

@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { createSuccess } from '../utils/createSuccess.js';
 
 const createToken = (id) => {
-  return jwt.sign({ _id: id }, process.env.SECRET, { expiresIn: '3d' });
+  return jwt.sign({ userId: id }, process.env.SECRET, { expiresIn: '3d' });
 };
 
 // Register user

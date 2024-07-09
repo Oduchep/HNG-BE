@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { sequelize } from '../db.config.js';
-import { Sequelize, DataTypes } from 'sequelize';
+import { DataTypes } from 'sequelize';
 
 const OrganisationModel = sequelize.define(
   'Organisation',

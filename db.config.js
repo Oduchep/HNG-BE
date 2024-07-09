@@ -3,9 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-console.log(`port: ${process.env.PORT}`);
-
-export const sequelize = new Sequelize(process.env.POSTGRESQL_URI, {
+export const sequelize = new Sequelize(process.env.POSTGRES_URL, {
   dialect: 'postgres',
   protocol: 'postgres',
   logging: false, // Set to console.log to see the raw SQL queries
