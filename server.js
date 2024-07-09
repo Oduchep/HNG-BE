@@ -27,7 +27,7 @@ app.use('/auth', authRoutes);
 app.use('/api', greetingRoutes);
 
 app.get('/', (req, res) => {
-  res.send('API works!');
+  res.send('There is no Knowledge that is not Power!');
 });
 
 // Error handler
